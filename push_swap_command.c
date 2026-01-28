@@ -1,104 +1,113 @@
-
 #include "push_swap.h"
-#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-void	set_current_position(t_stack_node *stack)
+/*
+ * Loop decays once
+ * 		~cheapest_node tops is a
+ * 		~relative target_node tops in b
+*/
+static void	rotate_both(t_stack_node **a,
+						t_stack_node **b,
+						t_stack_node *cheapest_node)
 {
-	int	i;
-	int	centerline;
-
-	i = 0;
-	if (NULL == stack)
-		return ;
-	centerline = stack_len(stack) / 2;
-	while (stack)
-	{
-		stack->current_position = i;
-		if (i <= centerline)
-			stack->above_median = true;
-		else
-			stack->above_median = false;
-		stack = stack->next;
-		++i;
-	}
+	while (*a != cheapest_node->target_node
+		&& *b != cheapest_node)
+		rr(a, b, false);
+	set_current_position(*a);
+	set_current_position(*b);
 }
 
-static void	set_target_node(t_stack_node *a,
-							t_stack_node *b)
+static void	reverse_rotate_both(t_stack_node **a,
+								t_stack_node **b,
+								t_stack_node *cheapest_node)
 {
-	t_stack_node	*current_a;
-	t_stack_node	*target_node;
-	long			best_match_index;
+	while (*a != cheapest_node->target_node
+		&& *b != cheapest_node)
+		rrr(a, b, false);
+	set_current_position(*a);
+	set_current_position(*b);
+}
 
-	while (b)
+/*
+ * Conclude the rotation of the stacks 
+*/
+void	finish_rotation(t_stack_node **stack,
+							t_stack_node *top_node,
+							char stack_name)
+{
+	while (*stack != top_node)
 	{
-		best_match_index = LONG_MAX;
-		current_a = a;
-		while (current_a)
+		if (stack_name == 'a')
 		{
-			if (current_a->value > b->value
-				&& current_a->value < best_match_index)
-			{
-				best_match_index = current_a->value;
-				target_node = current_a;
-			}
-			current_a = current_a->next;
+			if (top_node->above_median)
+				ra(stack, false);
+			else
+				rra(stack, false);
 		}
-		if (LONG_MAX == best_match_index)
-			b->target_node = find_smallest(a);
-		else
-			b->target_node = target_node;
-		b = b->next;
-	}
-}
-
-void	set_price(t_stack_node *a, t_stack_node *b)
-{
-	int	len_a;
-	int	len_b;
-
-	len_a = stack_len(a);
-	len_b = stack_len(b);
-	while (b)
-	{
-		b->push_price = b->current_position;
-		if (!(b->above_median))
-			b->push_price = len_b - (b->current_position);
-		if (b->target_node->above_median)
-			b->push_price += b->target_node->current_position;
-		else
-			b->push_price += len_a - (b->target_node->current_position);
-		b = b->next;
-	}
-}
-
-void	set_cheapest(t_stack_node *b)
-{
-	long			best_match_value;
-	t_stack_node	*best_match_node;
-
-	if (NULL == b)
-		return ;
-	best_match_value = LONG_MAX;
-	while (b)
-	{
-		if (b->push_price < best_match_value)
+		else if (stack_name == 'b')
 		{
-			best_match_value = b->push_price;
-			best_match_node = b;
-		}
-		b = b->next;
+			if (top_node->above_median)
+				rb(stack, false);
+			else
+				rrb(stack, false);
+		}	
 	}
-	best_match_node->cheapest = true;
 }
 
-void	init_nodes(t_stack_node *a, t_stack_node *b)
+/*
+ * Move the node from 'b' to 'a'
+ * with the metadata available in the node
+ * 1)Make the target nodes emerge
+ * 2)push in A
+*/
+static void	move_nodes(t_stack_node **a, t_stack_node **b)
 {
-	set_current_position(a);
-	set_current_position(b);
-	set_target_node(a, b);
-	set_price(a, b);
-	set_cheapest(b);
+	t_stack_node	*cheapest_node;
+
+	cheapest_node = return_cheapest(*b);
+	if (cheapest_node->above_median
+		&& cheapest_node->target_node->above_median)
+		rotate_both(a, b, cheapest_node);
+	else if (!(cheapest_node->above_median)
+		&& !(cheapest_node->target_node->above_median))
+		reverse_rotate_both(a, b, cheapest_node);
+	finish_rotation(b, cheapest_node, 'b');
+	finish_rotation(a, cheapest_node->target_node, 'a');
+	pa(a, b, false);
+}
+
+/*
+ * ~Push all nodes in B 
+ * ~For every configuration choose the "cheapest_node"
+ * ~Push everything back in A in order
+*/
+void	push_swap(t_stack_node **a, t_stack_node **b)
+{
+	t_stack_node	*smallest;
+	int				len_a;
+
+	len_a = stack_len(*a);
+	if (len_a == 5)
+		handle_five(a, b);
+	else
+	{
+		while (len_a-- > 3)
+			pb(b, a, false);
+	}
+	tiny_sort(a);
+	while (*b)
+	{
+		init_nodes(*a, *b);
+		move_nodes(a, b);
+	}
+	set_current_position(*a);
+	smallest = find_smallest(*a);
+	if (smallest->above_median)
+		while (*a != smallest)
+			ra(a, false);
+	else
+		while (*a != smallest)
+			rra(a, false);
 }
