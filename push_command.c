@@ -1,4 +1,9 @@
 #include "push_swap.h"
+
+/*
+ * Push a node to the top from src to dest
+ * 🚨 attention If stack empty (i.e. NULL)
+*/
 static void	push(t_stack_node **dest, t_stack_node **src)
 {
 	t_stack_node	*node_to_push;
